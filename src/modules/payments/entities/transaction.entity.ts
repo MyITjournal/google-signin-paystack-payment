@@ -1,12 +1,7 @@
 import { Entity, Column, ManyToOne } from 'typeorm';
 import { BaseEntity } from '../../../common/entities/base-entity';
 import { User } from '../../users/entities/user.entity';
-
-export enum TransactionStatus {
-  PENDING = 'pending',
-  SUCCESS = 'success',
-  FAILED = 'failed',
-}
+import { TransactionStatus } from '../../../common/enums/transaction-status.enum';
 
 @Entity('transactions')
 export class Transaction extends BaseEntity {

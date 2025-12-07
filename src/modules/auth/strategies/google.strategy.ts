@@ -1,7 +1,8 @@
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { SYS_MESSAGES } from '../../../common/constants/sys-messages';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
@@ -20,13 +21,34 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     profile: any,
     done: VerifyCallback,
   ): Promise<any> {
-    const { id, name, emails, photos } = profile;
-    const user = {
-      google_id: id,
-      email: emails[0].value,
-      name: `${name.givenName} ${name.familyName}`,
-      picture: photos[0].value,
-    };
-    done(null, user);
+    try {
+      if (!profile || !profile.id) {
+        return done(
+          new UnauthorizedException(SYS_MESSAGES.INVALID_OAUTH_CODE),
+          false,
+        );
+      }
+
+      const { id, name, emails, photos } = profile;
+
+      if (!emails || !emails[0] || !emails[0].value) {
+        return done(
+          new UnauthorizedException(SYS_MESSAGES.INVALID_OAUTH_CODE),
+          false,
+        );
+      }
+
+      const user = {
+        google_id: id,
+        email: emails[0].value,
+        name:
+          `${name?.givenName || ''} ${name?.familyName || ''}`.trim() ||
+          'Unknown User',
+        picture: photos?.[0]?.value || null,
+      };
+      done(null, user);
+    } catch (error) {
+      done(new UnauthorizedException(SYS_MESSAGES.OAUTH_PROVIDER_ERROR), false);
+    }
   }
 }

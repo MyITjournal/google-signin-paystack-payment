@@ -2,34 +2,21 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from '../users/entities/user.entity';
+import { UserModelActions } from '../users/actions/user.actions';
 
 @Injectable()
 export class AuthService {
+  private userActions: UserModelActions;
+
   constructor(
     @InjectRepository(User)
     private userRepository: Repository<User>,
-  ) {}
+  ) {
+    this.userActions = new UserModelActions(userRepository);
+  }
 
   async validateGoogleUser(googleUser: any) {
-    let user: User | null = await this.userRepository.findOne({
-      where: { google_id: googleUser.google_id },
-    });
-
-    if (!user) {
-      const newUser = this.userRepository.create(googleUser);
-      const saved = await this.userRepository.save(newUser);
-      user = Array.isArray(saved) ? saved[0] : saved;
-    } else {
-      // Update user info
-      user.name = googleUser.name;
-      user.picture = googleUser.picture;
-      const saved = await this.userRepository.save(user);
-      user = Array.isArray(saved) ? saved[0] : saved;
-    }
-
-    if (!user) {
-      throw new Error('Failed to create or update user');
-    }
+    const user = await this.userActions.findOrCreateGoogleUser(googleUser);
 
     return {
       user_id: user.id,

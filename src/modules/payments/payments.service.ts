@@ -1,147 +1,139 @@
-import { Injectable, BadRequestException, HttpException } from '@nestjs/common';
+import {
+  Injectable,
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  InternalServerErrorException,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Transaction, TransactionStatus } from './entities/transaction.entity';
+import { Transaction } from './entities/transaction.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
-import axios from 'axios';
-import * as crypto from 'crypto';
+import { SYS_MESSAGES } from '../../common/constants/sys-messages';
+import { PaymentModelActions } from './actions/payment.actions';
 
 @Injectable()
 export class PaymentsService {
-  private paystackBaseUrl = 'https://api.paystack.co';
+  private paymentActions: PaymentModelActions;
 
   constructor(
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
     private readonly configService: ConfigService,
-  ) {}
+  ) {
+    this.paymentActions = new PaymentModelActions(
+      transactionRepository,
+      configService,
+    );
+  }
 
   async initiatePayment(dto: InitiatePaymentDto) {
-    // Generate unique reference for idempotency
-    const reference = this.generateReference();
+    if (!dto.amount || dto.amount <= 0 || !Number.isInteger(dto.amount)) {
+      throw new BadRequestException(SYS_MESSAGES.INVALID_INPUT);
+    }
 
-    try {
-      const response = await axios.post(
-        `${this.paystackBaseUrl}/transaction/initialize`,
-        {
-          amount: dto.amount,
-          email: dto.email || 'user@example.com', // This is expected from an authenticated user
-          reference,
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${this.configService.get('PAYSTACK_SECRET_KEY')}`,
-            'Content-Type': 'application/json',
-          },
-        },
+    // Check for duplicate transaction (idempotency)
+    const existingTransaction =
+      await this.paymentActions.findRecentDuplicateTransaction(dto.amount);
+
+    if (existingTransaction) {
+      return {
+        reference: existingTransaction.reference,
+        authorization_url: existingTransaction.authorization_url,
+      };
+    }
+
+    // Generate unique reference
+    const reference = this.paymentActions.generateReference();
+
+    // Initialize payment with Paystack (throws on error)
+    const paystackData =
+      await this.paymentActions.initializePaystackTransaction(
+        reference,
+        dto.amount,
       );
 
-      const transaction = this.transactionRepository.create({
-        reference,
-        amount: dto.amount / 100, // Convert from kobo to naira
-        authorization_url: response.data.data.authorization_url,
-        status: TransactionStatus.PENDING,
-      });
+    // Create transaction record
+    await this.paymentActions.createTransaction(
+      reference,
+      dto.amount,
+      paystackData.authorization_url,
+    );
 
-      await this.transactionRepository.save(transaction);
-
-      return {
-        reference,
-        authorization_url: response.data.data.authorization_url,
-      };
-    } catch (error) {
-      throw new HttpException('Payment initiation failed', 402);
-    }
+    return {
+      reference,
+      authorization_url: paystackData.authorization_url,
+    };
   }
 
   async handleWebhook(signature: string, payload: any) {
-    // Verify Paystack signature
-    const webhookSecret = this.configService.get<string>(
-      'PAYSTACK_WEBHOOK_SECRET',
+    // Verify signature (throws on error)
+    const isValid = this.paymentActions.verifyWebhookSignature(
+      signature,
+      payload,
     );
-    if (!webhookSecret) {
-      throw new BadRequestException('Webhook secret not configured');
+
+    if (!isValid) {
+      throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
     }
 
-    const hash = crypto
-      .createHmac('sha512', webhookSecret)
-      .update(JSON.stringify(payload))
-      .digest('hex');
-
-    if (hash !== signature) {
-      throw new BadRequestException('Invalid signature');
+    // Validate payload structure
+    if (!payload.data || !payload.data.reference || !payload.data.status) {
+      throw new BadRequestException(SYS_MESSAGES.INVALID_INPUT);
     }
 
     const { reference, status } = payload.data;
 
-    const transaction = await this.transactionRepository.findOne({
-      where: { reference },
-    });
+    // Find and update transaction
+    const transaction =
+      await this.paymentActions.findTransactionByReference(reference);
 
     if (transaction) {
-      transaction.status = this.mapPaystackStatus(status);
-      if (status === 'success') {
-        transaction.paid_at = new Date();
-      }
-      await this.transactionRepository.save(transaction);
+      await this.paymentActions.updateTransactionStatus(
+        transaction,
+        status,
+        status === 'success' ? new Date() : undefined,
+      );
     }
 
     return { status: true };
   }
 
   async getTransactionStatus(reference: string, refresh: boolean = false) {
-    let transaction = await this.transactionRepository.findOne({
-      where: { reference },
-    });
+    // Get transaction from DB
+    let transaction =
+      await this.paymentActions.findTransactionByReference(reference);
 
-    if (!transaction) {
-      throw new BadRequestException('Transaction not found');
-    }
+    // If missing or refresh requested, verify with Paystack
+    if (!transaction || refresh) {
+      const paystackData =
+        await this.paymentActions.verifyTransactionWithPaystack(reference);
 
-    if (refresh) {
-      // Verify with Paystack
-      try {
-        const response = await axios.get(
-          `${this.paystackBaseUrl}/transaction/verify/${reference}`,
-          {
-            headers: {
-              Authorization: `Bearer ${this.configService.get('PAYSTACK_SECRET_KEY')}`,
-            },
-          },
-        );
-
-        transaction.status = this.mapPaystackStatus(response.data.data.status);
-        if (response.data.data.status === 'success') {
-          transaction.paid_at = new Date(response.data.data.paid_at);
-        }
-        await this.transactionRepository.save(transaction);
-      } catch (error) {
-        throw new HttpException(
-          'Failed to verify transaction with Paystack',
-          500,
+      if (!transaction) {
+        // Create new transaction from Paystack data
+        transaction =
+          await this.paymentActions.createTransactionFromPaystack(paystackData);
+      } else {
+        // Update existing transaction
+        await this.paymentActions.updateTransactionStatus(
+          transaction,
+          paystackData.status,
+          paystackData.paid_at ? new Date(paystackData.paid_at) : undefined,
         );
       }
+    }
+
+    if (!transaction) {
+      throw new NotFoundException(SYS_MESSAGES.TRANSACTION_NOT_FOUND);
     }
 
     return {
       reference: transaction.reference,
       status: transaction.status,
-      amount: transaction.amount * 100, // Convert back to kobo
+      amount: transaction.amount * 100,
       paid_at: transaction.paid_at,
     };
-  }
-
-  private generateReference(): string {
-    return `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-  }
-
-  private mapPaystackStatus(paystackStatus: string): TransactionStatus {
-    const statusMap = {
-      success: TransactionStatus.SUCCESS,
-      failed: TransactionStatus.FAILED,
-      pending: TransactionStatus.PENDING,
-    };
-    return statusMap[paystackStatus] || TransactionStatus.PENDING;
   }
 }
