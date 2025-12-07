@@ -45,7 +45,7 @@ export class TransformInterceptor implements NestInterceptor {
           };
           const response: Record<string, unknown> = {
             status_code: envelope.status_code ?? envelope.statusCode ?? 200,
-            message: envelope.message ?? null,
+            message: envelope.message ?? 'Success',
             data: envelope.data ?? null,
           };
           // Preserve meta if it exists
@@ -126,7 +126,7 @@ export class TransformInterceptor implements NestInterceptor {
               message:
                 typeof resultObj.message === 'string'
                   ? resultObj.message
-                  : null,
+                  : 'Success',
               data: hasKeys ? rest : null,
             };
             // Preserve meta if it exists
@@ -139,7 +139,7 @@ export class TransformInterceptor implements NestInterceptor {
 
         return {
           status_code: statusCode,
-          message: null,
+          message: 'Success',
           data: result === undefined ? null : (result as unknown),
         };
       }),
