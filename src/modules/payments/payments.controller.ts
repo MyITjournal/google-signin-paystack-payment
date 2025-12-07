@@ -8,16 +8,16 @@ import {
   Headers,
   HttpCode,
 } from '@nestjs/common';
-import { PaymentService } from './payment.service';
+import { PaymentsService } from './payments.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 
 @Controller('payments')
-export class PaymentController {
-  constructor(private paymentService: PaymentService) {}
+export class PaymentsController {
+  constructor(private paymentsService: PaymentsService) {}
 
   @Post('paystack/initiate')
   async initiatePayment(@Body() dto: InitiatePaymentDto) {
-    return this.paymentService.initiatePayment(dto);
+    return this.paymentsService.initiatePayment(dto);
   }
 
   @Post('paystack/webhook')
@@ -26,7 +26,7 @@ export class PaymentController {
     @Headers('x-paystack-signature') signature: string,
     @Body() payload: any,
   ) {
-    return this.paymentService.handleWebhook(signature, payload);
+    return this.paymentsService.handleWebhook(signature, payload);
   }
 
   @Get(':reference/status')
@@ -34,7 +34,7 @@ export class PaymentController {
     @Param('reference') reference: string,
     @Query('refresh') refresh?: string,
   ) {
-    return this.paymentService.getTransactionStatus(
+    return this.paymentsService.getTransactionStatus(
       reference,
       refresh === 'true',
     );

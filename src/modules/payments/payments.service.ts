@@ -8,7 +8,7 @@ import axios from 'axios';
 import * as crypto from 'crypto';
 
 @Injectable()
-export class PaymentService {
+export class PaymentsService {
   private paystackBaseUrl = 'https://api.paystack.co';
 
   constructor(
