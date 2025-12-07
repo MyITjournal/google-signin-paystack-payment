@@ -1,98 +1,396 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Google Sign-In & Paystack Payment
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This is a NestJS backend application implementing Google OAuth authentication and Paystack payment integration with enterprise-grade architecture and security.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+### Authentication
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- Google OAuth 2.0 Sign-In
+- User profile management (email, name, picture)
+- Secure callback handling
+- Session-less authentication
 
-## Project setup
+### Payments
 
-```bash
-$ npm install
-```
+- Paystack payment initialization
+- Webhook verification with HMAC SHA512
+- Transaction status tracking
+- Idempotency support
+- Real-time payment verification
 
-## Compile and run the project
+### Architecture
 
-```bash
-# development
-$ npm run start
+- Model-Actions pattern (business logic separation)
+- Global exception filter with error standardization
+- esponse transformation interceptor
+- TypeORM with PostgreSQL
+- Snake_case database columns
+- Soft delete support
 
-# watch mode
-$ npm run start:dev
+## Prerequisites
 
-# production mode
-$ npm run start:prod
-```
+- Node.js (v18 or higher)
+- PostgreSQL (v14 or higher)
+- npm or yarn
+- Google Cloud Console account
+- Paystack account
 
-## Run tests
+## Installation
+
+### 1. Clone the repository
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+git clone https://github.com/MyITjournal/google-signin-paystack-payment.git
+cd google-signin-paystack-payment
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 2. Install dependencies
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm install
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+### 3. Configure the environment variables
 
-## Resources
+Create a `.env` file in the root directory:
 
-Check out a few resources that may come in handy when working with NestJS:
+```env
+# Database Configuration
+DATABASE_HOST=localhost
+DATABASE_PORT=5432
+DATABASE_USER=postgres
+DATABASE_PASSWORD=your_password
+DATABASE_NAME=google_paystack_db
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# Google OAuth Configuration
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 
-## Support
+# Paystack Configuration
+PAYSTACK_SECRET_KEY=sk_test_your_secret_key
+PAYSTACK_WEBHOOK_SECRET=your_webhook_secret
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+# Application Configuration
+PORT=3000
+NODE_ENV=development
+```
 
-## Stay in touch
+### 4. Database Setup
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+# Create PostgreSQL database
+createdb google_paystack_db
+
+# Database migrations are handled automatically by TypeORM (synchronize: true)
+```
+
+## Running the Application
+
+```bash
+# Development mode with hot reload
+npm run start:dev
+
+# Production mode
+npm run build
+npm run start:prod
+
+# Debug mode
+npm run start:debug
+```
+
+The application is available at `http://localhost:3000`
+
+## API Documentation
+
+### Authentication Endpoints
+
+#### 1. Initiate Google Sign-In
+
+```http
+GET /auth/google
+```
+
+**Response:** 302 Redirect to Google OAuth consent page
+
+#### 2. Google OAuth Callback
+
+```http
+GET /auth/google/callback?code={authorization_code}
+```
+
+**Success Response (200):**
+
+```json
+{
+  "user_id": "uuid",
+  "email": "user@example.com",
+  "name": "John Doe"
+}
+```
+
+**Error Responses:**
+
+- `400` - Missing authorization code
+- `401` - Invalid authorization code
+- `500` - OAuth provider error
+
+### Payment Endpoints
+
+#### 3. Initialize Payment
+
+```http
+POST /payments/paystack/initiate
+Content-Type: application/json
+
+{
+  "amount": 5000  // Amount in kobo (₦50.00)
+}
+```
+
+**Success Response (201):**
+
+```json
+{
+  "reference": "TXN_1733567890123_abc123",
+  "authorization_url": "https://checkout.paystack.com/xyz"
+}
+```
+
+**Error Responses:**
+
+- `400` - Invalid input
+- `402` - Payment initiation failed
+- `500` - Server error
+
+#### 4. Paystack Webhook
+
+```http
+POST /payments/paystack/webhook
+X-Paystack-Signature: {hmac_signature}
+Content-Type: application/json
+
+{
+  "event": "charge.success",
+  "data": {
+    "reference": "TXN_1733567890123_abc123",
+    "status": "success",
+    "amount": 5000
+  }
+}
+```
+
+**Success Response (200):**
+
+```json
+{
+  "status": true
+}
+```
+
+**Error Responses:**
+
+- `400` - Invalid signature or payload
+- `500` - Server error
+
+#### 5. Check Transaction Status
+
+```http
+GET /payments/{reference}/status?refresh=true
+```
+
+**Success Response (200):**
+
+```json
+{
+  "reference": "TXN_1733567890123_abc123",
+  "status": "success",
+  "amount": 5000,
+  "paid_at": "2025-12-07T10:30:00.000Z"
+}
+```
+
+**Query Parameters:**
+
+- `refresh` (optional): Set to `true` to fetch live status from Paystack
+
+**Error Responses:**
+
+- `400` - Invalid reference
+- `404` - Transaction not found
+- `500` - Verification failed
+
+## 🏗️ Project Structure
+
+```
+src/
+├── common/
+│   ├── constants/
+│   │   └── sys-messages.ts        # Centralized error messages
+│   ├── decorators/
+│   │   └── skip-wrap.decorator.ts # Skip response wrapping
+│   ├── entities/
+│   │   └── base-entity.ts          # Base entity with timestamps
+│   ├── enums/
+│   │   └── transaction-status.enum.ts
+│   ├── exceptions/
+│   │   └── global-exception.filter.ts
+│   └── interceptors/
+│       └── transform.interceptor.ts
+├── modules/
+│   ├── auth/
+│   │   ├── auth.controller.ts
+│   │   ├── auth.service.ts
+│   │   ├── auth.module.ts
+│   │   └── strategies/
+│   │       └── google.strategy.ts
+│   ├── users/
+│   │   ├── entities/
+│   │   │   └── user.entity.ts
+│   │   ├── actions/
+│   │   │   └── user.actions.ts     # Business logic
+│   │   └── users.module.ts
+│   └── payments/
+│       ├── entities/
+│       │   └── transaction.entity.ts
+│       ├── actions/
+│       │   └── payment.actions.ts  # Business logic
+│       ├── dto/
+│       │   └── initiate-payment.dto.ts
+│       ├── payments.controller.ts
+│       ├── payments.service.ts
+│       └── payments.module.ts
+├── app.module.ts
+└── main.ts
+```
+
+## Security Features (to be put into consideration)
+
+### 1. Environment Variables
+
+- All secrets should be stored in `.env` (excluded from version control)
+- Runtime validation of required credentials
+
+### 2. Google OAuth Security
+
+- Server-side OAuth flow
+- Callback URL validation
+- Profile data verification
+
+### 3. Paystack Webhook Security
+
+- HMAC SHA512 signature verification
+- Prevents fake payment updates
+- Secret key validation
+
+### 4. Error Handling
+
+- Global exception filter
+- Sanitized error messages in production
+- Detailed logging with context
+
+### 5. Response Security
+
+- Consistent error format
+- Stack traces only in development
+- No sensitive data exposure
+
+## Model-Actions Pattern
+
+Services are thin orchestration layers:
+
+```typescript
+// Service (orchestration only)
+async initiatePayment(dto: InitiatePaymentDto) {
+  const existingTransaction =
+    await this.paymentActions.findRecentDuplicateTransaction(dto.amount);
+
+  if (existingTransaction) {
+    return { reference: existingTransaction.reference, ... };
+  }
+
+  const reference = this.paymentActions.generateReference();
+  const paystackData = await this.paymentActions.initializePaystackTransaction(...);
+  await this.paymentActions.createTransaction(...);
+
+  return { reference, authorization_url: paystackData.authorization_url };
+}
+```
+
+Actions handle business logic and throw specific exceptions:
+
+```typescript
+// Action (business logic)
+async initializePaystackTransaction(reference: string, amount: number) {
+  const secretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY');
+  if (!secretKey) {
+    throw new InternalServerErrorException('Payment config error');
+  }
+
+  const response = await axios.post(...);
+  // ... validation and error handling
+
+  return response.data.data;
+}
+```
+
+## Testing
+
+```bash
+# Unit tests
+npm run test
+
+# E2E tests
+npm run test:e2e
+
+# Test coverage
+npm run test:cov
+```
+
+## Production Deployment
+
+1. **Environment Setup**
+   - Set `NODE_ENV=production`
+   - Use production credentials
+   - Enable HTTPS
+   - Configure CORS
+
+2. **Database**
+   - Disable `synchronize` in TypeORM
+   - Use migrations
+   - Set up backups
+
+3. **Security**
+   - Rotate API keys regularly
+   - Enable rate limiting
+   - Set up monitoring
+   - Configure logging
+
+4. **Performance**
+   - Enable caching
+   - Use connection pooling
+   - Optimize database queries
+
+## Additional Documentation
+
+- [SECURITY.md](SECURITY.md) - Security implementation details
+- [MODEL-ACTIONS.md](MODEL-ACTIONS.md) - Architecture pattern documentation
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+This project is licensed under the MIT License.
+
+## Author
+
+**Ade Adebayo**
+
+- GitHub: [@MyITjournal](https://github.com/MyITjournal)
