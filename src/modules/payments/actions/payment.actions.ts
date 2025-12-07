@@ -4,14 +4,13 @@ import { ConfigService } from '@nestjs/config';
 import { Transaction } from '../entities/transaction.entity';
 import { TransactionStatus } from '../../../common/enums/transaction-status.enum';
 import {
-  BadRequestException,
-  HttpException,
-  HttpStatus,
-  InternalServerErrorException,
-  NotFoundException,
-} from '@nestjs/common';
+  PaystackException,
+  ConfigurationException,
+  TransactionNotFoundException,
+  WebhookVerificationException,
+} from '../../../common/exceptions/custom-exceptions';
 import { SYS_MESSAGES } from '../../../common/constants/sys-messages';
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import * as crypto from 'crypto';
 
 export class PaymentModelActions {
@@ -55,36 +54,43 @@ export class PaymentModelActions {
   ) {
     const secretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY');
     if (!secretKey) {
-      throw new InternalServerErrorException(SYS_MESSAGES.PAYMENT_CONFIG_ERROR);
+      throw new ConfigurationException('PAYSTACK_SECRET_KEY');
     }
 
-    const response = await axios.post(
-      `${this.paystackBaseUrl}/transaction/initialize`,
-      {
-        amount,
-        email,
-        reference,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
-          'Content-Type': 'application/json',
+    try {
+      const response = await axios.post(
+        `${this.paystackBaseUrl}/transaction/initialize`,
+        {
+          amount,
+          email,
+          reference,
         },
-      },
-    );
+        {
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+            'Content-Type': 'application/json',
+          },
+          timeout: 10000,
+        },
+      );
 
-    if (
-      !response.data ||
-      !response.data.data ||
-      !response.data.data.authorization_url
-    ) {
-      throw new HttpException(
-        SYS_MESSAGES.PAYMENT_INITIATION_FAILED,
-        HttpStatus.PAYMENT_REQUIRED,
+      if (
+        !response.data ||
+        !response.data.data ||
+        !response.data.data.authorization_url
+      ) {
+        throw new PaystackException('Invalid response from Paystack');
+      }
+
+      return response.data.data;
+    } catch (error) {
+      if (error instanceof PaystackException) throw error;
+      const axiosError = error as AxiosError;
+      throw new PaystackException(
+        'Failed to initialize transaction',
+        axiosError.response?.data,
       );
     }
-
-    return response.data.data;
   }
 
   async createTransaction(
@@ -114,9 +120,7 @@ export class PaymentModelActions {
       'PAYSTACK_WEBHOOK_SECRET',
     );
     if (!webhookSecret) {
-      throw new InternalServerErrorException(
-        SYS_MESSAGES.WEBHOOK_SECRET_NOT_CONFIGURED,
-      );
+      throw new ConfigurationException('PAYSTACK_WEBHOOK_SECRET');
     }
 
     const hash = crypto
@@ -158,19 +162,28 @@ export class PaymentModelActions {
   async verifyTransactionWithPaystack(reference: string) {
     const secretKey = this.configService.get<string>('PAYSTACK_SECRET_KEY');
     if (!secretKey) {
-      throw new InternalServerErrorException(SYS_MESSAGES.PAYMENT_CONFIG_ERROR);
+      throw new ConfigurationException('PAYSTACK_SECRET_KEY');
     }
 
-    const response = await axios.get(
-      `${this.paystackBaseUrl}/transaction/verify/${reference}`,
-      {
-        headers: {
-          Authorization: `Bearer ${secretKey}`,
+    try {
+      const response = await axios.get(
+        `${this.paystackBaseUrl}/transaction/verify/${reference}`,
+        {
+          headers: {
+            Authorization: `Bearer ${secretKey}`,
+          },
+          timeout: 10000,
         },
-      },
-    );
+      );
 
-    return response.data.data;
+      return response.data.data;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      throw new PaystackException(
+        `Failed to verify transaction: ${reference}`,
+        axiosError.response?.data,
+      );
+    }
   }
 
   async createTransactionFromPaystack(paystackData: any) {
