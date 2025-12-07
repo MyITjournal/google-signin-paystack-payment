@@ -26,7 +26,7 @@ export class PaymentService {
         `${this.paystackBaseUrl}/transaction/initialize`,
         {
           amount: dto.amount,
-          email: dto.email || 'user@example.com', // Should come from authenticated user
+          email: dto.email || 'user@example.com', // This is expected from an authenticated user
           reference,
         },
         {
