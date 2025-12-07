@@ -3,11 +3,11 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { UsersModule } from './users/users.module';
-import { PaymentModule } from './payment/payment.module';
-import { AuthModule } from './auth/auth.module';
-import { User } from './users/entities/user.entity';
-import { Transaction } from './payment/entities/transaction.entity';
+import { UsersModule } from './modules/users/users.module';
+import { PaymentModule } from './modules/payment/payment.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { User } from './modules/users/entities/user.entity';
+import { Transaction } from './modules/payment/entities/transaction.entity';
 
 @Module({
   imports: [
