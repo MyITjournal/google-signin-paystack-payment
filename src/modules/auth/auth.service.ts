@@ -36,23 +36,71 @@ export class AuthService {
 
   async verifyGoogleToken(googleToken: string) {
     try {
-      // Verify Google token by calling Google's tokeninfo endpoint
-      const response = await axios.get(
-        `https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=${googleToken}`,
-      );
+      // Try different Google API endpoints for token verification
+      let userInfo;
 
-      const { email, sub: googleId } = response.data;
+      // First, try the userinfo endpoint (works with access tokens)
+      try {
+        const response = await axios.get(
+          'https://www.googleapis.com/oauth2/v2/userinfo',
+          {
+            headers: {
+              Authorization: `Bearer ${googleToken}`,
+            },
+          },
+        );
+        userInfo = response.data;
+        console.log('Google userinfo response:', userInfo);
+      } catch (error) {
+        console.log('Userinfo failed, trying tokeninfo...');
+        // If that fails, try tokeninfo endpoint
+        const response = await axios.get(
+          `https://oauth2.googleapis.com/tokeninfo?access_token=${googleToken}`,
+        );
+        userInfo = response.data;
+        console.log('Google tokeninfo response:', userInfo);
+      }
 
+      // Extract user data - Google returns different field names
+      let email = userInfo.email;
+      const googleId = userInfo.sub || userInfo.id || userInfo.user_id;
+      const name = userInfo.name || userInfo.given_name;
+      const picture = userInfo.picture;
+
+      console.log('Extracted data:', { email, googleId, name, picture });
+
+      if (!googleId) {
+        throw new UnauthorizedException(
+          `Invalid Google token - missing user ID. Received data: ${JSON.stringify(userInfo)}`,
+        );
+      }
+
+      // If email is missing, try tokeninfo endpoint for more complete data
       if (!email) {
-        throw new UnauthorizedException('Invalid Google token');
+        try {
+          console.log('Email missing, trying tokeninfo endpoint...');
+          const tokenInfoResponse = await axios.get(
+            `https://oauth2.googleapis.com/tokeninfo?access_token=${googleToken}`,
+          );
+          console.log('Tokeninfo response:', tokenInfoResponse.data);
+          email = tokenInfoResponse.data.email;
+        } catch (err) {
+          console.log('Tokeninfo also failed');
+        }
+      }
+
+      // If still no email, generate one from Google ID
+      if (!email) {
+        email = `user_${googleId}@google-oauth.local`;
+        console.log('Generated fallback email:', email);
       }
 
       // Find or create user
       const user = await this.userActions.findOrCreateGoogleUser({
         email,
         id: googleId,
-        displayName: email.split('@')[0],
-        photos: [],
+        displayName: name || `User ${googleId.substring(0, 8)}`,
+        photos: picture ? [{ value: picture }] : [],
       });
 
       // Generate our JWT token
@@ -66,7 +114,17 @@ export class AuthService {
         access_token,
       };
     } catch (error) {
-      throw new UnauthorizedException('Invalid or expired Google token');
+      const errorMessage =
+        error.response?.data?.error_description ||
+        error.message ||
+        'Unknown error';
+      console.error(
+        'Token verification error:',
+        error.response?.data || error.message,
+      );
+      throw new UnauthorizedException(
+        `Invalid or expired Google token: ${errorMessage}`,
+      );
     }
   }
 }

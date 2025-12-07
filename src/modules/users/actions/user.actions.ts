@@ -14,8 +14,11 @@ export class UserModelActions {
   ) {}
 
   async findOrCreateGoogleUser(googleUser: any) {
+    // Map the fields properly - googleUser has 'id' not 'google_id'
+    const googleId = googleUser.id || googleUser.google_id;
+
     const existingUser = await this.userRepository.findOne({
-      where: { google_id: googleUser.google_id },
+      where: { google_id: googleId },
     });
 
     if (existingUser) {
@@ -26,11 +29,15 @@ export class UserModelActions {
   }
 
   private async createUser(googleUser: any) {
+    const googleId = googleUser.id || googleUser.google_id;
+    const name = googleUser.displayName || googleUser.name;
+    const picture = googleUser.photos?.[0]?.value || googleUser.picture;
+
     const newUser = this.userRepository.create({
-      google_id: googleUser.google_id,
+      google_id: googleId,
       email: googleUser.email,
-      name: googleUser.name,
-      picture: googleUser.picture,
+      name: name,
+      picture: picture,
     });
 
     const saved = await this.userRepository.save(newUser);
@@ -46,8 +53,11 @@ export class UserModelActions {
   }
 
   private async updateUserInfo(user: User, googleUser: any) {
-    user.name = googleUser.name;
-    user.picture = googleUser.picture;
+    const name = googleUser.displayName || googleUser.name;
+    const picture = googleUser.photos?.[0]?.value || googleUser.picture;
+
+    user.name = name || user.name; // Keep existing name if no new name
+    user.picture = picture || user.picture; // Keep existing picture if no new picture
 
     const saved = await this.userRepository.save(user);
     const updatedUser = Array.isArray(saved) ? saved[0] : saved;
