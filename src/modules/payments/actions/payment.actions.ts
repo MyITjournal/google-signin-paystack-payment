@@ -47,6 +47,13 @@ export class PaymentModelActions {
     return null;
   }
 
+  async checkReferenceExists(reference: string): Promise<boolean> {
+    const existing = await this.transactionRepository.findOne({
+      where: { reference },
+    });
+    return !!existing;
+  }
+
   async initializePaystackTransaction(
     reference: string,
     amount: number,
@@ -57,6 +64,10 @@ export class PaymentModelActions {
       throw new ConfigurationException('PAYSTACK_SECRET_KEY');
     }
 
+    const appUrl =
+      this.configService.get<string>('APP_URL') || 'http://localhost:3000';
+    const callbackUrl = `${appUrl}/payments/callback?reference=${reference}`;
+
     try {
       const response = await axios.post(
         `${this.paystackBaseUrl}/transaction/initialize`,
@@ -64,6 +75,7 @@ export class PaymentModelActions {
           amount,
           email,
           reference,
+          callback_url: callbackUrl,
         },
         {
           headers: {

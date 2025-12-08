@@ -22,7 +22,16 @@ export class AuthService {
   async validateGoogleUser(googleUser: any) {
     const user = await this.userActions.findOrCreateGoogleUser(googleUser);
 
-    const payload = { sub: user.id, email: user.email, name: user.name };
+    // Increment token version to invalidate all previous tokens
+    user.token_version += 1;
+    await this.userRepository.save(user);
+
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      tokenVersion: user.token_version,
+    };
     const access_token = this.jwtService.sign(payload);
 
     return {
@@ -45,8 +54,17 @@ export class AuthService {
       photos: googleUserInfo.picture ? [{ value: googleUserInfo.picture }] : [],
     });
 
+    // Increment token version to invalidate all previous tokens
+    user.token_version += 1;
+    await this.userRepository.save(user);
+
     // Generate JWT token
-    const payload = { sub: user.id, email: user.email, name: user.name };
+    const payload = {
+      sub: user.id,
+      email: user.email,
+      name: user.name,
+      tokenVersion: user.token_version,
+    };
     const access_token = this.jwtService.sign(payload);
 
     return {

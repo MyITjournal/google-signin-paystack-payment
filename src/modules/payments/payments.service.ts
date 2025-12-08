@@ -52,8 +52,23 @@ export class PaymentsService {
       };
     }
 
-    // Generate unique reference
-    const reference = this.paymentActions.generateReference();
+    // Generate unique reference with retry logic
+    let reference: string;
+    let attempts = 0;
+    const maxAttempts = 5;
+
+    do {
+      reference = this.paymentActions.generateReference();
+      const exists = await this.paymentActions.checkReferenceExists(reference);
+      if (!exists) break;
+      attempts++;
+    } while (attempts < maxAttempts);
+
+    if (attempts >= maxAttempts) {
+      throw new InternalServerErrorException(
+        'Failed to generate unique payment reference',
+      );
+    }
 
     // Use authenticated user's email or default
     const email = userEmail || 'guest@example.com';

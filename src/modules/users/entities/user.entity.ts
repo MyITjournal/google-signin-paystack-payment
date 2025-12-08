@@ -14,4 +14,7 @@ export class User extends BaseEntity {
 
   @Column({ name: 'google_id', unique: true })
   google_id!: string;
+
+  @Column({ name: 'token_version', default: 0 })
+  token_version!: number;
 }
