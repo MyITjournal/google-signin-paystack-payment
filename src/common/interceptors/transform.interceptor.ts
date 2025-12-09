@@ -8,7 +8,7 @@ import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 
-import { SKIP_WRAP } from '../decorators/skip-wrap.decorator';
+import { SKIP_WRAP } from '../decorators';
 
 @Injectable()
 export class TransformInterceptor implements NestInterceptor {
