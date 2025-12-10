@@ -13,7 +13,6 @@ import { FundWalletDto } from './dto/fund-wallet.dto';
 import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
 import { TransferWalletDto } from './dto/transfer-wallet.dto';
 import { WalletTransactionType, TransactionStatus } from '../../common/enums';
-import { ConfigService } from '@nestjs/config';
 import { WalletModelActions } from './model-actions/wallet.model-actions';
 import { WalletTransactionModelActions } from './model-actions/wallet-transaction.model-actions';
 import { PaymentModelActions } from '../payments/model-actions/payment.model-actions';
@@ -30,7 +29,6 @@ export class WalletService {
     private readonly paystackApi: PaystackApiService,
     private readonly userActions: UserModelActions,
     private readonly dataSource: DataSource,
-    private readonly configService: ConfigService,
   ) {}
 
   async getOrCreateWallet(userId: string): Promise<Wallet> {
@@ -428,7 +426,9 @@ export class WalletService {
       status: tx.status,
       reference: tx.reference,
       description: tx.description,
-      metadata: tx.metadata ? JSON.parse(tx.metadata) : null,
+      metadata: tx.metadata
+        ? (JSON.parse(tx.metadata) as Record<string, unknown>)
+        : null,
       created_at: tx.created_at,
     }));
   }
@@ -445,9 +445,8 @@ export class WalletService {
     const reference = payload.data.reference;
     const status = payload.data.status;
 
-    const transaction = await this.paymentActions.findTransactionByReference(
-      reference,
-    );
+    const transaction =
+      await this.paymentActions.findTransactionByReference(reference);
 
     if (transaction) {
       await this.paymentActions.updateTransactionStatus(
@@ -469,9 +468,8 @@ export class WalletService {
   }
 
   async getDepositStatus(reference: string) {
-    const transaction = await this.paymentActions.findTransactionByReference(
-      reference,
-    );
+    const transaction =
+      await this.paymentActions.findTransactionByReference(reference);
 
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
@@ -484,4 +482,3 @@ export class WalletService {
     };
   }
 }
-

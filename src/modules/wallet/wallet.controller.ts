@@ -15,7 +15,7 @@ import {
 import { WalletService } from './wallet.service';
 import { JwtOrApiKeyGuard } from '../auth/guards/jwt-or-api-key.guard';
 import { CurrentUser, RequirePermission } from '../../common/decorators';
-import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
+import type { AuthenticatedUser } from '../../common/interfaces/jwt.interface';
 import { FundWalletDto } from './dto/fund-wallet.dto';
 import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
 import type { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
