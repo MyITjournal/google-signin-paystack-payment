@@ -1,5 +1,5 @@
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Between, MoreThan } from 'typeorm';
+import { Repository, Between, MoreThan, FindOptionsWhere } from 'typeorm';
 import { ApiKeyUsageLog } from '../entities/api-key-usage-log.entity';
 import { Injectable } from '@nestjs/common';
 import { AbstractModelAction } from '@hng-sdk/orm';
@@ -40,7 +40,9 @@ export class ApiKeyUsageLogModelActions extends AbstractModelAction<ApiKeyUsageL
     apiKeyId: string,
     startDate?: Date,
   ): Promise<ApiKeyUsageLog[]> {
-    const where: any = { api_key: { id: apiKeyId } };
+    const where: FindOptionsWhere<ApiKeyUsageLog> = {
+      api_key: { id: apiKeyId } as FindOptionsWhere<ApiKey>,
+    };
     if (startDate) {
       where.logged_at = Between(startDate, new Date());
     }

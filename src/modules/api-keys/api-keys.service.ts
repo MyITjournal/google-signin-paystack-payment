@@ -4,7 +4,6 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { MoreThan } from 'typeorm';
 import { ApiKey } from './entities/api-key.entity';
 import { CreateApiKeyDto } from './dto/create-api-key.dto';
 import { UpdateApiKeyDto } from './dto/update-api-key.dto';
@@ -31,19 +30,24 @@ export class ApiKeysService {
   // Convert expiry string to datetime
   private calculateExpiryDate(expiry: string): Date {
     const now = new Date();
-    const expiryMap = {
+    const expiryMap: Record<string, () => Date> = {
       '1H': () => new Date(now.getTime() + 60 * 60 * 1000), // 1 hour
       '1D': () => new Date(now.getTime() + 24 * 60 * 60 * 1000), // 1 day
       '1M': () => new Date(now.setMonth(now.getMonth() + 1)), // 1 month
       '1Y': () => new Date(now.setFullYear(now.getFullYear() + 1)), // 1 year
     };
-    return expiryMap[expiry]();
+    const calculatorFn = expiryMap[expiry];
+    if (!calculatorFn) {
+      throw new Error(`Invalid expiry format: ${expiry}`);
+    }
+    return calculatorFn();
   }
 
   // Create a new API key
   async create(dto: CreateApiKeyDto, userId: string) {
     // Check maximum 5 active keys per user
-    const activeKeysCount = await this.apiKeyActions.countActiveByUserId(userId);
+    const activeKeysCount =
+      await this.apiKeyActions.countActiveByUserId(userId);
 
     if (activeKeysCount >= 5) {
       throw new BadRequestException(
@@ -58,7 +62,7 @@ export class ApiKeysService {
       key,
       name: dto.name,
       description: dto.description,
-      created_by: { id: userId } as any,
+      created_by: { id: userId } as { id: string },
       permissions: dto.permissions,
       rate_limit_per_hour: dto.rate_limit_per_hour || 100,
       rate_limit_per_day: dto.rate_limit_per_day || 1000,
@@ -341,7 +345,7 @@ export class ApiKeysService {
   }
 
   // Get recent usage logs for an API key
-  async getRecentLogs(id: string, userId: string, limit: number = 50) {
+  async getRecentLogs(id: string, userId: string, limit = 50) {
     const apiKey = await this.apiKeyActions.findByIdWithCreator(id);
 
     if (!apiKey || apiKey.created_by.id !== userId) {
@@ -350,7 +354,7 @@ export class ApiKeysService {
 
     const logs = await this.usageLogActions.findByApiKeyId(apiKey.id);
 
-    return logs.map((log) => ({
+    return logs.slice(0, limit).map((log) => ({
       id: log.id,
       endpoint: log.endpoint,
       method: log.method,
@@ -382,7 +386,8 @@ export class ApiKeysService {
     }
 
     // Check maximum 5 active keys per user (before creating new one)
-    const activeKeysCount = await this.apiKeyActions.countActiveByUserId(userId);
+    const activeKeysCount =
+      await this.apiKeyActions.countActiveByUserId(userId);
 
     if (activeKeysCount >= 5) {
       throw new BadRequestException(
@@ -398,7 +403,7 @@ export class ApiKeysService {
       key: newKey,
       name: expiredKey.name, // Reuse same name
       description: expiredKey.description,
-      created_by: { id: userId } as any,
+      created_by: { id: userId } as { id: string },
       permissions: expiredKey.permissions, // Reuse same permissions
       rate_limit_per_hour: expiredKey.rate_limit_per_hour,
       rate_limit_per_day: expiredKey.rate_limit_per_day,

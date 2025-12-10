@@ -1,5 +1,5 @@
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, FindOptionsWhere } from 'typeorm';
 import { ApiKey } from '../entities/api-key.entity';
 import { Injectable } from '@nestjs/common';
 import { AbstractModelAction } from '@hng-sdk/orm';
@@ -26,10 +26,15 @@ export class ApiKeyModelActions extends AbstractModelAction<ApiKey> {
   /**
    * Find API key by ID with creator relation and optional userId filter
    */
-  async findByIdWithCreator(id: string, userId?: string): Promise<ApiKey | null> {
-    const where: any = { id };
+  async findByIdWithCreator(
+    id: string,
+    userId?: string,
+  ): Promise<ApiKey | null> {
+    const where: FindOptionsWhere<ApiKey> = { id };
     if (userId) {
-      where.created_by = { id: userId };
+      where.created_by = { id: userId } as FindOptionsWhere<
+        ApiKey['created_by']
+      >;
     }
     return this.repository.findOne({
       where,
