@@ -10,7 +10,7 @@ export class Wallet extends BaseEntity {
   user: User;
 
   @Column({ unique: true, name: 'wallet_number' })
-  wallet_number: string;
+  walletNumber: string;
 
   @Column('decimal', { precision: 15, scale: 2, default: 0 })
   balance: number;
@@ -21,7 +21,7 @@ export class Wallet extends BaseEntity {
     default: 0,
     name: 'total_funded',
   })
-  total_funded: number;
+  totalFunded: number;
 
   @Column('decimal', {
     precision: 15,
@@ -29,10 +29,10 @@ export class Wallet extends BaseEntity {
     default: 0,
     name: 'total_withdrawn',
   })
-  total_withdrawn: number;
+  totalWithdrawn: number;
 
   @Column({ default: false, name: 'is_locked' })
-  is_locked: boolean;
+  isLocked: boolean;
 
   @OneToMany(() => WalletTransaction, (transaction) => transaction.wallet)
   transactions: WalletTransaction[];

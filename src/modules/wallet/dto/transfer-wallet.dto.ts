@@ -8,7 +8,7 @@ import {
 
 export class TransferWalletDto {
   @IsString()
-  wallet_number: string;
+  walletNumber: string;
 
   @IsNumber()
   @IsPositive()

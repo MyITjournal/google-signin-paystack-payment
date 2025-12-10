@@ -22,10 +22,10 @@ export class WalletTransaction extends BaseEntity {
   amount: number;
 
   @Column('decimal', { precision: 15, scale: 2, name: 'balance_before' })
-  balance_before: number;
+  balanceBefore: number;
 
   @Column('decimal', { precision: 15, scale: 2, name: 'balance_after' })
-  balance_after: number;
+  balanceAfter: number;
 
   @Column({
     type: 'enum',

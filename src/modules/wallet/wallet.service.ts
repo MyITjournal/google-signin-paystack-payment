@@ -5,17 +5,20 @@ import {
   InternalServerErrorException,
   ForbiddenException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { DataSource } from 'typeorm';
 import { Wallet } from './entities/wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
-import { User } from '../users/entities/user.entity';
 import { Transaction } from '../payments/entities/transaction.entity';
 import { FundWalletDto } from './dto/fund-wallet.dto';
 import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
 import { TransferWalletDto } from './dto/transfer-wallet.dto';
 import { WalletTransactionType, TransactionStatus } from '../../common/enums';
 import { ConfigService } from '@nestjs/config';
+import { WalletModelActions } from './model-actions/wallet.model-actions';
+import { WalletTransactionModelActions } from './model-actions/wallet-transaction.model-actions';
+import { PaymentModelActions } from '../payments/model-actions/payment.model-actions';
+import { PaystackApiService } from '../payments/services/paystack-api.service';
+import { UserModelActions } from '../users/model-actions/user.model-actions';
 import axios from 'axios';
 import * as crypto from 'crypto';
 
@@ -24,26 +27,20 @@ export class WalletService {
   private readonly paystackBaseUrl = 'https://api.paystack.co';
 
   constructor(
-    @InjectRepository(Wallet)
-    private readonly walletRepository: Repository<Wallet>,
-    @InjectRepository(WalletTransaction)
-    private readonly walletTransactionRepository: Repository<WalletTransaction>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
-    @InjectRepository(Transaction)
-    private readonly transactionRepository: Repository<Transaction>,
+    private readonly walletActions: WalletModelActions,
+    private readonly walletTransactionActions: WalletTransactionModelActions,
+    private readonly paymentActions: PaymentModelActions,
+    private readonly paystackApi: PaystackApiService,
+    private readonly userActions: UserModelActions,
     private readonly dataSource: DataSource,
     private readonly configService: ConfigService,
   ) {}
 
   async getOrCreateWallet(userId: string): Promise<Wallet> {
-    let wallet = await this.walletRepository.findOne({
-      where: { user: { id: userId } },
-      relations: ['user'],
-    });
+    let wallet = await this.walletActions.findByUserId(userId);
 
     if (!wallet) {
-      const user = await this.userRepository.findOne({ where: { id: userId } });
+      const user = await this.userActions.findById(userId);
       if (!user) {
         throw new NotFoundException('User not found');
       }
@@ -51,16 +48,7 @@ export class WalletService {
       // Generate unique wallet number
       const wallet_number = await this.generateWalletNumber();
 
-      wallet = this.walletRepository.create({
-        user,
-        wallet_number,
-        balance: 0,
-        total_funded: 0,
-        total_withdrawn: 0,
-        is_locked: false,
-      });
-
-      wallet = await this.walletRepository.save(wallet);
+      wallet = await this.walletActions.createForUser(userId, wallet_number);
     }
 
     return wallet;
@@ -76,11 +64,7 @@ export class WalletService {
         1000000000000 + Math.random() * 9000000000000,
       ).toString();
 
-      const existingWallet = await this.walletRepository.findOne({
-        where: { wallet_number: walletNumber },
-      });
-
-      exists = !!existingWallet;
+      exists = await this.walletActions.walletNumberExists(walletNumber);
     }
 
     return walletNumber;
@@ -96,7 +80,7 @@ export class WalletService {
   async initiateFunding(userId: string, dto: FundWalletDto) {
     const wallet = await this.getOrCreateWallet(userId);
 
-    if (wallet.is_locked) {
+    if (wallet.isLocked) {
       throw new ForbiddenException('Wallet is locked');
     }
 
@@ -126,15 +110,12 @@ export class WalletService {
         },
       );
 
-      const transaction = this.transactionRepository.create({
+      await this.paymentActions.createTransaction(
         reference,
-        amount: dto.amount / 100, // Convert to main currency
-        status: TransactionStatus.PENDING,
-        authorization_url: String(response.data?.data?.authorization_url || ''),
-        user: wallet.user,
-      });
-
-      await this.transactionRepository.save(transaction);
+        dto.amount, // Already in kobo
+        String(response.data?.data?.authorization_url || ''),
+        wallet.user.id,
+      );
 
       return {
         reference,
@@ -210,7 +191,7 @@ export class WalletService {
       await queryRunner.manager.save(walletTransaction);
 
       wallet.balance = balanceAfter;
-      wallet.total_funded = Number(wallet.total_funded) + amount;
+      wallet.totalFunded = Number(wallet.totalFunded) + amount;
       await queryRunner.manager.save(wallet);
 
       await queryRunner.commitTransaction();
@@ -238,7 +219,7 @@ export class WalletService {
         throw new NotFoundException('Wallet not found');
       }
 
-      if (wallet.is_locked) {
+      if (wallet.isLocked) {
         throw new ForbiddenException('Wallet is locked');
       }
 
@@ -390,12 +371,12 @@ export class WalletService {
         throw new NotFoundException('Sender wallet not found');
       }
 
-      if (senderWallet.is_locked) {
+      if (senderWallet.isLocked) {
         throw new ForbiddenException('Your wallet is locked');
       }
 
       const recipientWallet = await queryRunner.manager.findOne(Wallet, {
-        where: { wallet_number: dto.wallet_number },
+        where: { walletNumber: dto.walletNumber },
         relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
@@ -408,7 +389,7 @@ export class WalletService {
         throw new BadRequestException('Cannot transfer to yourself');
       }
 
-      if (recipientWallet.is_locked) {
+      if (recipientWallet.isLocked) {
         throw new ForbiddenException('Recipient wallet is locked');
       }
 
@@ -431,8 +412,8 @@ export class WalletService {
         status: TransactionStatus.SUCCESS,
         reference,
         description:
-          dto.description || `Transfer to wallet ${dto.wallet_number}`,
-        metadata: JSON.stringify({ recipient_wallet: dto.wallet_number }),
+          dto.description || `Transfer to wallet ${dto.walletNumber}`,
+        metadata: JSON.stringify({ recipient_wallet: dto.walletNumber }),
       });
 
       await queryRunner.manager.save(senderTransaction);
@@ -455,9 +436,9 @@ export class WalletService {
           reference,
           description:
             dto.description ||
-            `Transfer from wallet ${senderWallet.wallet_number}`,
+            `Transfer from wallet ${senderWallet.walletNumber}`,
           metadata: JSON.stringify({
-            sender_wallet: senderWallet.wallet_number,
+            sender_wallet: senderWallet.walletNumber,
           }),
         },
       );
@@ -465,8 +446,8 @@ export class WalletService {
       await queryRunner.manager.save(recipientTransaction);
 
       recipientWallet.balance = recipientBalanceAfter;
-      recipientWallet.total_funded =
-        Number(recipientWallet.total_funded) + amount;
+      recipientWallet.totalFunded =
+        Number(recipientWallet.totalFunded) + amount;
       await queryRunner.manager.save(recipientWallet);
 
       await queryRunner.commitTransaction();
@@ -486,18 +467,17 @@ export class WalletService {
   async getTransactionHistory(userId: string, limit: number = 50) {
     const wallet = await this.getOrCreateWallet(userId);
 
-    const transactions = await this.walletTransactionRepository.find({
-      where: { wallet: { id: wallet.id } },
-      order: { created_at: 'DESC' },
-      take: limit,
-    });
+    const transactions = await this.walletTransactionActions.getHistory(
+      wallet.id,
+      limit,
+    );
 
     return transactions.map((tx) => ({
       id: tx.id,
       type: tx.type,
       amount: Number(tx.amount),
-      balance_before: Number(tx.balance_before),
-      balance_after: Number(tx.balance_after),
+      balance_before: Number(tx.balanceBefore),
+      balance_after: Number(tx.balanceAfter),
       status: tx.status,
       reference: tx.reference,
       description: tx.description,
@@ -523,20 +503,16 @@ export class WalletService {
     const reference = String(payloadData.reference);
     const status = String(payloadData.status);
 
-    const transaction = await this.transactionRepository.findOne({
-      where: { reference },
-      relations: ['user'],
-    });
+    const transaction = await this.paymentActions.findTransactionByReference(
+      reference,
+    );
 
     if (transaction) {
-      transaction.status =
-        status === 'success'
-          ? TransactionStatus.SUCCESS
-          : TransactionStatus.FAILED;
-      if (status === 'success') {
-        transaction.paid_at = new Date();
-      }
-      await this.transactionRepository.save(transaction);
+      await this.paymentActions.updateTransactionStatus(
+        transaction,
+        status,
+        status === 'success' ? new Date() : undefined,
+      );
 
       if (status === 'success' && reference.startsWith('WALLET_FUND_')) {
         try {
@@ -572,9 +548,9 @@ export class WalletService {
   }
 
   async getDepositStatus(reference: string) {
-    const transaction = await this.transactionRepository.findOne({
-      where: { reference },
-    });
+    const transaction = await this.paymentActions.findTransactionByReference(
+      reference,
+    );
 
     if (!transaction) {
       throw new NotFoundException('Transaction not found');
@@ -587,3 +563,4 @@ export class WalletService {
     };
   }
 }
+
