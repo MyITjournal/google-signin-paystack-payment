@@ -17,15 +17,12 @@ import { ConfigService } from '@nestjs/config';
 import { WalletModelActions } from './model-actions/wallet.model-actions';
 import { WalletTransactionModelActions } from './model-actions/wallet-transaction.model-actions';
 import { PaymentModelActions } from '../payments/model-actions/payment.model-actions';
-import { PaystackApiService } from '../payments/services/paystack-api.service';
+import { PaystackApiService } from '../../common/services/paystack-api.service';
 import { UserModelActions } from '../users/model-actions/user.model-actions';
-import axios from 'axios';
-import * as crypto from 'crypto';
+import { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
 
 @Injectable()
 export class WalletService {
-  private readonly paystackBaseUrl = 'https://api.paystack.co';
-
   constructor(
     private readonly walletActions: WalletModelActions,
     private readonly walletTransactionActions: WalletTransactionModelActions,
@@ -85,42 +82,25 @@ export class WalletService {
     }
 
     const reference = `WALLET_FUND_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const paystackSecret = this.configService.get<string>(
-      'PAYSTACK_SECRET_KEY',
-    );
 
     try {
-      const response = await axios.post(
-        `${this.paystackBaseUrl}/transaction/initialize`,
-        {
-          email: wallet.user.email,
-          amount: dto.amount,
-          reference,
-          metadata: {
-            type: 'wallet_funding',
-            user_id: userId,
-            wallet_id: wallet.id,
-          },
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${paystackSecret}`,
-            'Content-Type': 'application/json',
-          },
-        },
+      const response = await this.paystackApi.initializeTransaction(
+        reference,
+        dto.amount,
+        wallet.user.email,
       );
 
       await this.paymentActions.createTransaction(
         reference,
         dto.amount, // Already in kobo
-        String(response.data?.data?.authorization_url || ''),
+        response.authorization_url,
         wallet.user.id,
       );
 
       return {
         reference,
-        authorization_url: String(response.data?.data?.authorization_url || ''),
-        access_code: String(response.data?.data?.access_code || ''),
+        authorization_url: response.authorization_url,
+        access_code: response.access_code,
       };
     } catch (error) {
       const errorMessage =
@@ -285,46 +265,13 @@ export class WalletService {
     accountNumber: string,
     bankCode: string,
   ) {
-    const paystackSecret = this.configService.get<string>(
-      'PAYSTACK_SECRET_KEY',
+    const recipientCode = await this.paystackApi.createTransferRecipient(
+      accountNumber,
+      bankCode,
+      'Wallet Withdrawal',
     );
 
-    const recipientResponse = await axios.post(
-      `${this.paystackBaseUrl}/transferrecipient`,
-      {
-        type: 'nuban',
-        name: 'Wallet Withdrawal',
-        account_number: accountNumber,
-        bank_code: bankCode,
-        currency: 'NGN',
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${paystackSecret}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
-
-    const recipientCode = String(
-      recipientResponse.data?.data?.recipient_code || '',
-    );
-
-    await axios.post(
-      `${this.paystackBaseUrl}/transfer`,
-      {
-        source: 'balance',
-        amount,
-        recipient: recipientCode,
-        reference,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${paystackSecret}`,
-          'Content-Type': 'application/json',
-        },
-      },
-    );
+    await this.paystackApi.initiateTransfer(amount, recipientCode, reference);
   }
 
   private async handleFailedWithdrawal(transactionId: string, amount: number) {
@@ -488,20 +435,15 @@ export class WalletService {
 
   async handlePaystackWebhook(
     signature: string,
-    payload: Record<string, unknown>,
+    payload: PaystackWebhookPayload,
   ) {
-    const isValid = this.verifyWebhookSignature(signature, payload);
+    const isValid = this.paystackApi.verifyWebhookSignature(signature, payload);
     if (!isValid) {
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    const payloadData = payload.data as Record<string, unknown> | undefined;
-    if (!payloadData?.reference || !payloadData?.status) {
-      throw new BadRequestException('Invalid webhook payload');
-    }
-
-    const reference = String(payloadData.reference);
-    const status = String(payloadData.status);
+    const reference = payload.data.reference;
+    const status = payload.data.status;
 
     const transaction = await this.paymentActions.findTransactionByReference(
       reference,
@@ -524,27 +466,6 @@ export class WalletService {
     }
 
     return { status: true };
-  }
-
-  private verifyWebhookSignature(
-    signature: string,
-    payload: Record<string, unknown>,
-  ): boolean {
-    const webhookSecret = this.configService.get<string>(
-      'PAYSTACK_WEBHOOK_SECRET',
-    );
-    if (!webhookSecret) {
-      throw new InternalServerErrorException(
-        'PAYSTACK_WEBHOOK_SECRET not configured',
-      );
-    }
-
-    const hash = crypto
-      .createHmac('sha512', webhookSecret)
-      .update(JSON.stringify(payload))
-      .digest('hex');
-
-    return hash === signature;
   }
 
   async getDepositStatus(reference: string) {

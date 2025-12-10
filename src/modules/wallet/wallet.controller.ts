@@ -18,6 +18,7 @@ import { CurrentUser, RequirePermission } from '../../common/decorators';
 import type { AuthenticatedUser } from '../auth/decorators/current-user.decorator';
 import { FundWalletDto } from './dto/fund-wallet.dto';
 import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
+import type { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
 import { TransferWalletDto } from './dto/transfer-wallet.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
 
@@ -47,7 +48,7 @@ export class WalletController {
   @HttpCode(HttpStatus.OK)
   async handlePaystackWebhook(
     @Headers('x-paystack-signature') signature: string,
-    @Body() payload: Record<string, unknown>,
+    @Body() payload: PaystackWebhookPayload,
   ) {
     if (!signature) {
       throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
