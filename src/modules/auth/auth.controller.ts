@@ -13,8 +13,13 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
-import type { Response } from 'express';
+import type { Request, Response } from 'express';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
+import type { GoogleUserData } from '../../common/interfaces/jwt.interface';
+
+interface RequestWithUser extends Request {
+  user?: GoogleUserData;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -30,7 +35,7 @@ export class AuthController {
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
   async googleAuthRedirect(
-    @Req() req,
+    @Req() req: RequestWithUser,
     @Res() res: Response,
     @Query('code') code?: string,
   ) {
@@ -52,7 +57,7 @@ export class AuthController {
         name: user.name,
         access_token: user.access_token,
       });
-    } catch (error) {
+    } catch {
       throw new InternalServerErrorException(SYS_MESSAGES.OAUTH_PROVIDER_ERROR);
     }
   }

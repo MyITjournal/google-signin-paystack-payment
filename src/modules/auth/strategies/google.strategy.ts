@@ -3,10 +3,14 @@ import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { SYS_MESSAGES } from '../../../common/constants/sys-messages';
+import {
+  PassportGoogleProfile,
+  GoogleUserData,
+} from '../../../common/interfaces/jwt.interface';
 
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
-  constructor(private configService: ConfigService) {
+  constructor(configService: ConfigService) {
     super({
       clientID: configService.get<string>('GOOGLE_CLIENT_ID') || '',
       clientSecret: configService.get<string>('GOOGLE_CLIENT_SECRET') || '',
@@ -15,12 +19,12 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(
-    accessToken: string,
-    refreshToken: string,
-    profile: any,
+  validate(
+    _accessToken: string,
+    _refreshToken: string,
+    profile: PassportGoogleProfile,
     done: VerifyCallback,
-  ): Promise<any> {
+  ): void {
     try {
       if (!profile || !profile.id) {
         return done(
@@ -38,7 +42,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         );
       }
 
-      const user = {
+      const user: GoogleUserData = {
         google_id: id,
         email: emails[0].value,
         name:
@@ -47,7 +51,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         picture: photos?.[0]?.value || null,
       };
       done(null, user);
-    } catch (error) {
+    } catch {
       done(new UnauthorizedException(SYS_MESSAGES.OAUTH_PROVIDER_ERROR), false);
     }
   }

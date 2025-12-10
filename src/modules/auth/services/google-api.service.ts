@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { GoogleAuthException } from '../../../common/exceptions/custom-exceptions';
 
 export interface GoogleUserInfo {
@@ -7,6 +7,18 @@ export interface GoogleUserInfo {
   googleId: string;
   name: string;
   picture?: string;
+}
+
+interface GoogleApiResponse {
+  sub?: string;
+  id?: string;
+  user_id?: string;
+  email?: string;
+  name?: string;
+  given_name?: string;
+  picture?: string;
+  access_token?: string;
+  error_description?: string;
 }
 
 @Injectable()
@@ -33,28 +45,30 @@ export class GoogleApiService {
   /**
    * Fetch user info from Google API using multiple endpoints
    */
-  private async fetchUserInfo(token: string): Promise<any> {
+  private async fetchUserInfo(token: string): Promise<GoogleApiResponse> {
     // Try userinfo endpoint first (works with access tokens)
     try {
       const response = await axios.get(this.GOOGLE_USERINFO_URL, {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 5000,
       });
-      return response.data;
-    } catch (error) {
+      return response.data as GoogleApiResponse;
+    } catch {
       // Fallback to tokeninfo endpoint
       const response = await axios.get(
         `${this.GOOGLE_TOKENINFO_URL}?access_token=${token}`,
         { timeout: 5000 },
       );
-      return response.data;
+      return response.data as GoogleApiResponse;
     }
   }
 
   /**
    * Extract and normalize user data from Google API response
    */
-  private async extractUserData(userInfo: any): Promise<GoogleUserInfo> {
+  private async extractUserData(
+    userInfo: GoogleApiResponse,
+  ): Promise<GoogleUserInfo> {
     const googleId = userInfo.sub || userInfo.id || userInfo.user_id;
 
     if (!googleId) {
@@ -91,29 +105,34 @@ export class GoogleApiService {
    */
   private async fetchEmailFromTokenInfo(
     accessToken?: string,
-  ): Promise<string | null> {
-    if (!accessToken) return null;
+  ): Promise<string | undefined> {
+    if (!accessToken) return undefined;
 
     try {
       const response = await axios.get(
         `${this.GOOGLE_TOKENINFO_URL}?access_token=${accessToken}`,
         { timeout: 5000 },
       );
-      return response.data.email || null;
+      const data = response.data as GoogleApiResponse;
+      return data.email || undefined;
     } catch {
-      return null;
+      return undefined;
     }
   }
 
   /**
    * Handle verification errors with appropriate messages
    */
-  private handleVerificationError(error: any): GoogleAuthException {
+  private handleVerificationError(error: unknown): GoogleAuthException {
+    const axiosError = error as {
+      response?: { data?: GoogleApiResponse };
+      message?: string;
+    };
     const errorMessage =
-      error.response?.data?.error_description ||
-      error.message ||
+      axiosError.response?.data?.error_description ||
+      axiosError.message ||
       'Token verification failed';
 
-    return new GoogleAuthException(errorMessage, error);
+    return new GoogleAuthException(errorMessage, error as Error);
   }
 }

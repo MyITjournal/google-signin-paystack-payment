@@ -4,6 +4,7 @@ import { User } from '../users/entities/user.entity';
 import { UserModelActions } from '../users/model-actions/user.model-actions';
 import { GoogleApiService } from './services/google-api.service';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
+import { GoogleUserData } from '../../common/interfaces/jwt.interface';
 
 @Injectable()
 export class AuthService {
@@ -13,10 +14,12 @@ export class AuthService {
     private userActions: UserModelActions,
   ) {}
 
-  private async findOrCreateGoogleUser(googleUser: any): Promise<User> {
-    const googleId = googleUser.id || googleUser.google_id;
-    const name = googleUser.displayName || googleUser.name;
-    const picture = googleUser.photos?.[0]?.value || googleUser.picture;
+  private async findOrCreateGoogleUser(
+    googleUser: GoogleUserData,
+  ): Promise<User> {
+    const googleId = googleUser.google_id;
+    const name = googleUser.name;
+    const picture = googleUser.picture ?? undefined;
 
     // Try to find existing user
     let user = await this.userActions.findByGoogleId(googleId);
@@ -43,7 +46,7 @@ export class AuthService {
     return user;
   }
 
-  async validateGoogleUser(googleUser: any) {
+  async validateGoogleUser(googleUser: GoogleUserData) {
     const user = await this.findOrCreateGoogleUser(googleUser);
 
     // Increment token version to invalidate all previous tokens
@@ -72,10 +75,10 @@ export class AuthService {
 
     // Find or create user in our database
     const user = await this.findOrCreateGoogleUser({
+      google_id: googleUserInfo.googleId,
       email: googleUserInfo.email,
-      id: googleUserInfo.googleId,
-      displayName: googleUserInfo.name,
-      photos: googleUserInfo.picture ? [{ value: googleUserInfo.picture }] : [],
+      name: googleUserInfo.name,
+      picture: googleUserInfo.picture,
     });
 
     // Increment token version to invalidate all previous tokens
