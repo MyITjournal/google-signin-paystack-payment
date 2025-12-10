@@ -16,6 +16,8 @@ import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators';
+import type { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
+import type { JwtPayload } from '../../common/interfaces/jwt.interface';
 
 @Controller('payments')
 export class PaymentsController {
@@ -26,7 +28,7 @@ export class PaymentsController {
   @HttpCode(HttpStatus.CREATED)
   async initiatePayment(
     @Body() dto: InitiatePaymentDto,
-    @CurrentUser() user: any,
+    @CurrentUser() user: JwtPayload,
   ) {
     return this.paymentsService.initiatePayment(dto, user.userId, user.email);
   }
@@ -35,7 +37,7 @@ export class PaymentsController {
   @HttpCode(HttpStatus.OK)
   async handleWebhook(
     @Headers('x-paystack-signature') signature: string,
-    @Body() payload: any,
+    @Body() payload: PaystackWebhookPayload,
   ) {
     if (!signature) {
       throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
@@ -45,7 +47,7 @@ export class PaymentsController {
 
   @Get('history')
   @UseGuards(JwtAuthGuard)
-  async getTransactionHistory(@CurrentUser() user: any) {
+  async getTransactionHistory(@CurrentUser() user: JwtPayload) {
     return this.paymentsService.getUserTransactions(user.userId);
   }
 

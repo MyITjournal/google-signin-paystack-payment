@@ -1,39 +1,28 @@
 import {
   Injectable,
   BadRequestException,
-  HttpException,
-  HttpStatus,
   InternalServerErrorException,
   NotFoundException,
 } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { ConfigService } from '@nestjs/config';
-import { Transaction } from './entities/transaction.entity';
+
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
-import { PaymentModelActions } from './actions/payment.actions';
+import { PaymentModelActions } from './model-actions/payment.model-actions';
+import { PaystackApiService } from '../../common/services/paystack-api.service';
 import { WalletService } from '../wallet/wallet.service';
+import { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
 
 @Injectable()
 export class PaymentsService {
-  private paymentActions: PaymentModelActions;
-
   constructor(
-    @InjectRepository(Transaction)
-    private readonly transactionRepository: Repository<Transaction>,
-    private readonly configService: ConfigService,
+    private readonly paymentActions: PaymentModelActions,
+    private readonly paystackApi: PaystackApiService,
     private readonly walletService: WalletService,
-  ) {
-    this.paymentActions = new PaymentModelActions(
-      transactionRepository,
-      configService,
-    );
-  }
+  ) {}
 
   async initiatePayment(
     dto: InitiatePaymentDto,
-    userId?: number,
+    userId?: string,
     userEmail?: string,
   ) {
     if (!dto.amount || dto.amount <= 0 || !Number.isInteger(dto.amount)) {
@@ -60,7 +49,7 @@ export class PaymentsService {
     const maxAttempts = 5;
 
     do {
-      reference = this.paymentActions.generateReference();
+      reference = this.paystackApi.generateReference();
       const exists = await this.paymentActions.checkReferenceExists(reference);
       if (!exists) break;
       attempts++;
@@ -76,12 +65,11 @@ export class PaymentsService {
     const email = userEmail || 'guest@example.com';
 
     // Initialize payment with Paystack (throws on error)
-    const paystackData =
-      await this.paymentActions.initializePaystackTransaction(
-        reference,
-        dto.amount,
-        email,
-      );
+    const paystackData = await this.paystackApi.initializeTransaction(
+      reference,
+      dto.amount,
+      email,
+    );
 
     // Create transaction record
     await this.paymentActions.createTransaction(
@@ -97,12 +85,9 @@ export class PaymentsService {
     };
   }
 
-  async handleWebhook(signature: string, payload: any) {
+  async handleWebhook(signature: string, payload: PaystackWebhookPayload) {
     // Verify signature (throws on error)
-    const isValid = this.paymentActions.verifyWebhookSignature(
-      signature,
-      payload,
-    );
+    const isValid = this.paystackApi.verifyWebhookSignature(signature, payload);
 
     if (!isValid) {
       throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
@@ -147,8 +132,7 @@ export class PaymentsService {
 
     // If missing or refresh requested, verify with Paystack
     if (!transaction || refresh) {
-      const paystackData =
-        await this.paymentActions.verifyTransactionWithPaystack(reference);
+      const paystackData = await this.paystackApi.verifyTransaction(reference);
 
       if (!transaction) {
         // Create new transaction from Paystack data
@@ -176,7 +160,7 @@ export class PaymentsService {
     };
   }
 
-  async getUserTransactions(userId: number) {
+  async getUserTransactions(userId: string) {
     const transactions = await this.paymentActions.findUserTransactions(userId);
 
     return transactions.map((transaction) => ({

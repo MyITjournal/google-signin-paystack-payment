@@ -4,6 +4,8 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Transaction } from './entities/transaction.entity';
 import { WalletModule } from '../wallet/wallet.module';
+import { PaymentModelActions } from './model-actions/payment.model-actions';
+import { PaystackApiService } from '../../common/services/paystack-api.service';
 
 @Module({
   imports: [
@@ -11,7 +13,7 @@ import { WalletModule } from '../wallet/wallet.module';
     forwardRef(() => WalletModule),
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
+  providers: [PaymentsService, PaymentModelActions],
   exports: [PaymentsService],
 })
 export class PaymentsModule {}
