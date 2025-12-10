@@ -15,7 +15,7 @@ import { PaymentsService } from './payments.service';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CurrentUser } from '../../common/decorators';
 
 @Controller('payments')
 export class PaymentsController {

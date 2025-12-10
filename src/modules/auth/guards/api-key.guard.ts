@@ -16,11 +16,17 @@ export class ApiKeyGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      headers: Record<string, string | undefined>;
+      ip?: string;
+      connection?: { remoteAddress?: string };
+      apiKey?: unknown;
+      apiKeyUser?: unknown;
+    }>();
 
     // Extract API key from header
     const apiKey = request.headers['x-api-key'];
-    if (!apiKey) {
+    if (!apiKey || typeof apiKey !== 'string') {
       throw new UnauthorizedException('API key is required');
     }
 
@@ -32,7 +38,7 @@ export class ApiKeyGuard implements CanActivate {
       ) || '*'; // Default: any permission
 
     // Get client IP
-    const ipAddress = request.ip || request.connection.remoteAddress;
+    const ipAddress = request.ip || request.connection?.remoteAddress;
 
     try {
       // Validate API key with all checks (expiry, permissions, rate limits, IP)
@@ -48,7 +54,9 @@ export class ApiKeyGuard implements CanActivate {
 
       return true;
     } catch (error) {
-      throw new UnauthorizedException(error.message || 'Invalid API key');
+      const errorMessage =
+        error instanceof Error ? error.message : 'Invalid API key';
+      throw new UnauthorizedException(errorMessage);
     }
   }
 }

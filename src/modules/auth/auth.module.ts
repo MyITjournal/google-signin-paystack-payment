@@ -8,11 +8,14 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GoogleApiService } from './services/google-api.service';
 import { UsersModule } from '../users/users.module';
+import { ApiKeysModule } from '../api-keys/api-keys.module';
+import { JwtOrApiKeyGuard } from './guards/jwt-or-api-key.guard';
 
 @Module({
   imports: [
     PassportModule,
     UsersModule,
+    ApiKeysModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => ({
@@ -25,7 +28,13 @@ import { UsersModule } from '../users/users.module';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, GoogleStrategy, JwtStrategy, GoogleApiService],
-  exports: [AuthService, JwtModule],
+  providers: [
+    AuthService,
+    GoogleStrategy,
+    JwtStrategy,
+    GoogleApiService,
+    JwtOrApiKeyGuard,
+  ],
+  exports: [AuthService, JwtModule, JwtOrApiKeyGuard],
 })
 export class AuthModule {}

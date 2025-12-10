@@ -13,6 +13,7 @@ import { Transaction } from './entities/transaction.entity';
 import { InitiatePaymentDto } from './dto/initiate-payment.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
 import { PaymentModelActions } from './actions/payment.actions';
+import { WalletService } from '../wallet/wallet.service';
 
 @Injectable()
 export class PaymentsService {
@@ -22,6 +23,7 @@ export class PaymentsService {
     @InjectRepository(Transaction)
     private readonly transactionRepository: Repository<Transaction>,
     private readonly configService: ConfigService,
+    private readonly walletService: WalletService,
   ) {
     this.paymentActions = new PaymentModelActions(
       transactionRepository,
@@ -123,6 +125,16 @@ export class PaymentsService {
         status,
         status === 'success' ? new Date() : undefined,
       );
+
+      // Auto-credit wallet if payment is for wallet funding
+      if (status === 'success' && reference.startsWith('WALLET_FUND_')) {
+        try {
+          await this.walletService.creditWalletFromPayment(reference);
+        } catch (error) {
+          console.error('Failed to credit wallet:', error);
+          // Don't fail the webhook - just log the error
+        }
+      }
     }
 
     return { status: true };

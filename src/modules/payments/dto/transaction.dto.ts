@@ -1,5 +1,5 @@
 import { IsString, IsEnum, IsOptional, IsDateString } from 'class-validator';
-import { TransactionStatus } from '../../../common/enums/transaction-status.enum';
+import { TransactionStatus } from '../../../common/enums';
 
 export class WebhookPayloadDto {
   @IsString()

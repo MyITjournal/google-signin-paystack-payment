@@ -15,25 +15,22 @@ export class JwtOrApiKeyGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<{
+      headers: Record<string, string | undefined>;
+    }>();
 
     // Check if API key is present
     const apiKey = request.headers['x-api-key'];
 
     if (apiKey) {
       // Try API key authentication with permission checking
-      try {
-        return (await this.apiKeyGuard.canActivate(context)) as boolean;
-      } catch (error) {
-        // If API key fails, throw the error
-        throw error;
-      }
+      return await this.apiKeyGuard.canActivate(context);
     }
 
     // Try JWT authentication
     try {
       return (await this.jwtAuthGuard.canActivate(context)) as boolean;
-    } catch (error) {
+    } catch {
       throw new UnauthorizedException(
         'Authentication required: Provide valid JWT token or API key',
       );
