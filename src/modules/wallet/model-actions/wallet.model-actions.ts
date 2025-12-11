@@ -49,11 +49,11 @@ export class WalletModelActions extends AbstractModelAction<Wallet> {
   async createForUser(userId: string, walletNumber: string): Promise<Wallet> {
     const walletData = {
       user: { id: userId },
-      wallet_number: walletNumber,
+      walletNumber: walletNumber,
       balance: 0,
-      total_funded: 0,
-      total_withdrawn: 0,
-      is_locked: false,
+      totalFunded: 0,
+      totalWithdrawn: 0,
+      isLocked: false,
     };
 
     return this.create({

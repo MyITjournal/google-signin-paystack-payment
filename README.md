@@ -1054,3 +1054,5 @@ curl https://yourapp.com/docs
 
 - GitHub: https://github.com/MyITjournal/wallet-service
 - Base URL: https://paystack-integration-76e6df6dd489.herokuapp.com/
+- Swagger link: https://paystack-integration-76e6df6dd489.herokuapp.com/docs#/
+- Heroku: https://git.heroku.com/paystack-integration.git
