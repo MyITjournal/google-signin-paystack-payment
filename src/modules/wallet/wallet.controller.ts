@@ -15,8 +15,7 @@ import {
 } from '@nestjs/common';
 import { ApiExcludeEndpoint, ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { ApiKeyGuard } from '../auth/guards/api-key.guard';
+import { JwtOrApiKeyGuard } from '../auth/guards/jwt-or-api-key.guard';
 import {
   CurrentUser,
   RequirePermission,
@@ -47,7 +46,7 @@ export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
   @Get('balance')
-  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @UseGuards(JwtOrApiKeyGuard)
   @RequirePermission('read')
   @SkipWrap()
   @ApiGetWalletBalance()
@@ -56,7 +55,7 @@ export class WalletController {
   }
 
   @Post('deposit')
-  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @UseGuards(JwtOrApiKeyGuard)
   @RequirePermission('deposit')
   @HttpCode(HttpStatus.CREATED)
   @SkipWrap()
@@ -88,7 +87,7 @@ export class WalletController {
   }
 
   @Get('deposit/:reference/status')
-  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @UseGuards(JwtOrApiKeyGuard)
   @RequirePermission('read')
   @SkipWrap()
   @ApiVerifyDepositStatus()
@@ -100,7 +99,7 @@ export class WalletController {
   }
 
   @Post('withdraw')
-  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @UseGuards(JwtOrApiKeyGuard)
   @RequirePermission('transfer')
   @HttpCode(HttpStatus.CREATED)
   @ApiExcludeEndpoint()
@@ -112,7 +111,7 @@ export class WalletController {
   }
 
   @Post('transfer')
-  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @UseGuards(JwtOrApiKeyGuard)
   @RequirePermission('transfer')
   @HttpCode(HttpStatus.CREATED)
   @SkipWrap()
@@ -125,7 +124,7 @@ export class WalletController {
   }
 
   @Get('transactions')
-  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @UseGuards(JwtOrApiKeyGuard)
   @RequirePermission('read')
   @SkipWrap()
   @ApiTransactionHistory()

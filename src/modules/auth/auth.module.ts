@@ -11,6 +11,7 @@ import { UsersModule } from '../users/users.module';
 import { ApiKeysModule } from '../api-keys/api-keys.module';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiKeyGuard } from './guards/api-key.guard';
+import { JwtOrApiKeyGuard } from './guards/jwt-or-api-key.guard';
 
 @Module({
   imports: [
@@ -36,7 +37,14 @@ import { ApiKeyGuard } from './guards/api-key.guard';
     GoogleApiService,
     JwtAuthGuard,
     ApiKeyGuard,
+    JwtOrApiKeyGuard,
   ],
-  exports: [AuthService, JwtModule, JwtAuthGuard, ApiKeyGuard],
+  exports: [
+    AuthService,
+    JwtModule,
+    JwtAuthGuard,
+    ApiKeyGuard,
+    JwtOrApiKeyGuard,
+  ],
 })
 export class AuthModule {}
