@@ -319,11 +319,13 @@ export class WalletService {
         throw new ForbiddenException('Your wallet is locked');
       }
 
-      const recipientWallet = await queryRunner.manager.findOne(Wallet, {
-        where: { walletNumber: dto.wallet_number, is_deleted: false },
-        relations: ['user'],
-        lock: { mode: 'pessimistic_write' },
-      });
+      const recipientWallet = await queryRunner.manager
+        .createQueryBuilder(Wallet, 'wallet')
+        .leftJoinAndSelect('wallet.user', 'user')
+        .where('wallet.wallet_number = :walletNumber', { walletNumber: dto.wallet_number })
+        .andWhere('wallet.is_deleted = :isDeleted', { isDeleted: false })
+        .setLock('pessimistic_write')
+        .getOne();
 
       if (!recipientWallet) {
         throw new NotFoundException('Recipient wallet not found');
