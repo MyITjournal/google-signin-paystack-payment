@@ -118,7 +118,7 @@ export class WalletService {
 
     try {
       const payment = await queryRunner.manager.findOne(Transaction, {
-        where: { reference: paymentReference },
+        where: { reference: paymentReference, is_deleted: false },
         relations: ['user'],
       });
 
@@ -130,7 +130,7 @@ export class WalletService {
       const existingWalletTx = await queryRunner.manager.findOne(
         WalletTransaction,
         {
-          where: { reference: paymentReference },
+          where: { reference: paymentReference, is_deleted: false },
         },
       );
 
@@ -141,7 +141,7 @@ export class WalletService {
 
       // Get wallet with lock
       const wallet = await queryRunner.manager.findOne(Wallet, {
-        where: { user: { id: payment.user.id } },
+        where: { user: { id: payment.user.id }, is_deleted: false },
         lock: { mode: 'pessimistic_write' },
       });
 
@@ -187,7 +187,7 @@ export class WalletService {
 
     try {
       const wallet = await queryRunner.manager.findOne(Wallet, {
-        where: { user: { id: userId } },
+        where: { user: { id: userId }, is_deleted: false },
         relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
@@ -278,7 +278,7 @@ export class WalletService {
 
     try {
       const walletTx = await queryRunner.manager.findOne(WalletTransaction, {
-        where: { id: transactionId },
+        where: { id: transactionId, is_deleted: false },
         relations: ['wallet'],
         lock: { mode: 'pessimistic_write' },
       });
@@ -306,7 +306,7 @@ export class WalletService {
 
     try {
       const senderWallet = await queryRunner.manager.findOne(Wallet, {
-        where: { user: { id: senderId } },
+        where: { user: { id: senderId }, is_deleted: false },
         relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
@@ -320,7 +320,7 @@ export class WalletService {
       }
 
       const recipientWallet = await queryRunner.manager.findOne(Wallet, {
-        where: { walletNumber: dto.wallet_number },
+        where: { walletNumber: dto.wallet_number, is_deleted: false },
         relations: ['user'],
         lock: { mode: 'pessimistic_write' },
       });
