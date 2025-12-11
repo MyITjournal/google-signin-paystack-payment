@@ -39,6 +39,12 @@ import { ApiKeyGuard } from './guards/api-key.guard';
     ApiKeyGuard,
     JwtOrApiKeyGuard,
   ],
-  exports: [AuthService, JwtModule, JwtAuthGuard, ApiKeyGuard, JwtOrApiKeyGuard],
+  exports: [
+    AuthService,
+    JwtModule,
+    JwtAuthGuard,
+    ApiKeyGuard,
+    JwtOrApiKeyGuard,
+  ],
 })
 export class AuthModule {}

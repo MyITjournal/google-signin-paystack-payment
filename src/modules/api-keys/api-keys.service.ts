@@ -73,6 +73,7 @@ export class ApiKeysService {
 
     return {
       api_key: saved.key,
+      permissions: saved.permissions,
       expires_at: saved.expires_at,
     };
   }
