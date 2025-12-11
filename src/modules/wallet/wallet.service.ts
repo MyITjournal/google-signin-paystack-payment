@@ -305,11 +305,14 @@ export class WalletService {
     await queryRunner.startTransaction();
 
     try {
-      const senderWallet = await queryRunner.manager.findOne(Wallet, {
-        where: { user: { id: senderId }, is_deleted: false },
-        relations: ['user'],
-        lock: { mode: 'pessimistic_write' },
-      });
+      // Lock sender wallet with FOR UPDATE
+      const senderWallet = await queryRunner.manager
+        .createQueryBuilder(Wallet, 'wallet')
+        .leftJoinAndSelect('wallet.user', 'user')
+        .where('wallet.user_id = :userId', { userId: senderId })
+        .andWhere('wallet.is_deleted = :isDeleted', { isDeleted: false })
+        .setLock('pessimistic_write')
+        .getOne();
 
       if (!senderWallet) {
         throw new NotFoundException('Sender wallet not found');
@@ -319,10 +322,13 @@ export class WalletService {
         throw new ForbiddenException('Your wallet is locked');
       }
 
+      // Lock recipient wallet with FOR UPDATE
       const recipientWallet = await queryRunner.manager
         .createQueryBuilder(Wallet, 'wallet')
         .leftJoinAndSelect('wallet.user', 'user')
-        .where('wallet.wallet_number = :walletNumber', { walletNumber: dto.wallet_number })
+        .where('wallet.wallet_number = :walletNumber', {
+          walletNumber: dto.wallet_number,
+        })
         .andWhere('wallet.is_deleted = :isDeleted', { isDeleted: false })
         .setLock('pessimistic_write')
         .getOne();
