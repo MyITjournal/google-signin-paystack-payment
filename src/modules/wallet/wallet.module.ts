@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { WalletService } from './wallet.service';
 import { WalletController } from './wallet.controller';
+import { WalletApiController } from './wallet-api.controller';
 import { Wallet } from './entities/wallet.entity';
 import { WalletTransaction } from './entities/wallet-transaction.entity';
 import { AuthModule } from '../auth/auth.module';
@@ -21,7 +22,7 @@ import { SharedModule } from '../shared/shared.module';
     UsersModule,
     PaymentsModule,
   ],
-  controllers: [WalletController],
+  controllers: [WalletController, WalletApiController],
   providers: [WalletService, WalletModelActions, WalletTransactionModelActions],
   exports: [WalletService],
 })

@@ -9,13 +9,10 @@ import {
   Query,
   ParseIntPipe,
   Param,
-  Headers,
-  Header,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 import {
   CurrentUser,
@@ -24,30 +21,26 @@ import {
 } from '../../common/decorators';
 import type { AuthenticatedUser } from '../../common/interfaces/jwt.interface';
 import { FundWalletDto } from './dto/fund-wallet.dto';
-import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
-import type { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
 import { TransferWalletDto } from './dto/transfer-wallet.dto';
 import { TransactionHistoryResponseDto } from './dto/transaction-history-response.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
 import {
-  ApiWalletTags,
-  ApiWalletBearerAuth,
-  ApiWalletDeposit,
-  ApiPaystackWebhook,
-  ApiVerifyDepositStatus,
   ApiGetWalletBalance,
+  ApiWalletDeposit,
+  ApiVerifyDepositStatus,
   ApiWalletTransfer,
   ApiTransactionHistory,
 } from './docs/wallet-docs.decorator';
 
-@Controller('wallet')
-@ApiWalletTags()
-@ApiWalletBearerAuth()
-export class WalletController {
+@Controller('wallet/api')
+@ApiTags('Wallet (API Key)')
+@ApiSecurity('x-api-key')
+export class WalletApiController {
   constructor(private readonly walletService: WalletService) {}
 
   @Get('balance')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ApiKeyGuard)
+  @RequirePermission('read')
   @SkipWrap()
   @ApiGetWalletBalance()
   async getBalance(@CurrentUser() user: AuthenticatedUser) {
@@ -55,7 +48,8 @@ export class WalletController {
   }
 
   @Post('deposit')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ApiKeyGuard)
+  @RequirePermission('deposit')
   @HttpCode(HttpStatus.CREATED)
   @SkipWrap()
   @ApiWalletDeposit()
@@ -66,27 +60,9 @@ export class WalletController {
     return this.walletService.initiateFunding(user.userId, dto);
   }
 
-  @Post('paystack/webhook')
-  @HttpCode(HttpStatus.OK)
-  @ApiPaystackWebhook()
-  async handlePaystackWebhook(
-    @Headers('x-paystack-signature') signature: string,
-    @Body() payload: PaystackWebhookPayload,
-  ) {
-    console.log('Webhook received:', {
-      signature: signature || 'MISSING',
-      event: payload?.event || 'UNKNOWN',
-      reference: payload?.data?.reference || 'N/A',
-    });
-
-    if (!signature) {
-      throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
-    }
-    return this.walletService.handlePaystackWebhook(signature, payload);
-  }
-
   @Get('deposit/:reference/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ApiKeyGuard)
+  @RequirePermission('read')
   @SkipWrap()
   @ApiVerifyDepositStatus()
   async getDepositStatus(@Param('reference') reference: string) {
@@ -96,19 +72,9 @@ export class WalletController {
     return this.walletService.getDepositStatus(reference);
   }
 
-  @Post('withdraw')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiExcludeEndpoint()
-  async withdrawFromWallet(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: WithdrawWalletDto,
-  ) {
-    return this.walletService.initiateWithdrawal(user.userId, dto);
-  }
-
   @Post('transfer')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ApiKeyGuard)
+  @RequirePermission('transfer')
   @HttpCode(HttpStatus.CREATED)
   @SkipWrap()
   @ApiWalletTransfer()
@@ -120,7 +86,8 @@ export class WalletController {
   }
 
   @Get('transactions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(ApiKeyGuard)
+  @RequirePermission('read')
   @SkipWrap()
   @ApiTransactionHistory()
   async getTransactionHistory(
