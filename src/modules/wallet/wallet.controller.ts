@@ -10,6 +10,7 @@ import {
   ParseIntPipe,
   Param,
   Headers,
+  Header,
   BadRequestException,
 } from '@nestjs/common';
 import { ApiExcludeEndpoint } from '@nestjs/swagger';
@@ -66,12 +67,12 @@ export class WalletController {
     @Headers('x-paystack-signature') signature: string,
     @Body() payload: PaystackWebhookPayload,
   ) {
-    console.log('📥 Webhook received:', {
+    console.log('Webhook received:', {
       signature: signature || 'MISSING',
       event: payload?.event || 'UNKNOWN',
       reference: payload?.data?.reference || 'N/A',
     });
-    
+
     if (!signature) {
       throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
     }
@@ -122,5 +123,15 @@ export class WalletController {
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
   ) {
     return this.walletService.getTransactionHistory(user.userId, limit || 50);
+  }
+
+  @Get('callback')
+  @Header('Content-Type', 'text/html')
+  @ApiExcludeEndpoint()
+  async handlePaymentCallback(@Query('reference') reference: string) {
+    if (!reference || reference.trim() === '') {
+      throw new BadRequestException(SYS_MESSAGES.INVALID_INPUT);
+    }
+    return this.walletService.handlePaymentCallback(reference);
   }
 }
