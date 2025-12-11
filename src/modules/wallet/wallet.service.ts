@@ -444,10 +444,12 @@ export class WalletService {
     const reference = payload.data.reference;
     const status = payload.data.status;
 
+    console.log('[handlePaystackWebhook] Looking for transaction:', reference);
     const transaction =
       await this.transactionActions.findTransactionByReference(reference);
 
     if (transaction) {
+      console.log('[handlePaystackWebhook] Transaction found, updating status to:', status);
       await this.transactionActions.updateTransactionStatus(
         transaction,
         status,
@@ -456,23 +458,36 @@ export class WalletService {
 
       if (status === 'success' && reference.startsWith('WALLET_FUND_')) {
         try {
+          console.log('[handlePaystackWebhook] Crediting wallet for reference:', reference);
           await this.creditWalletFromPayment(reference);
+          console.log('[handlePaystackWebhook] Wallet credited successfully');
         } catch (error) {
           console.error('Failed to credit wallet:', error);
         }
       }
+    } else {
+      console.log('[handlePaystackWebhook] Transaction NOT FOUND for reference:', reference);
     }
 
     return { status: true };
   }
 
   async getDepositStatus(reference: string) {
+    console.log('[getDepositStatus] Looking for transaction with reference:', reference);
     const transaction =
       await this.transactionActions.findTransactionByReference(reference);
 
     if (!transaction) {
+      console.log('[getDepositStatus] Transaction NOT FOUND for reference:', reference);
       throw new NotFoundException('Transaction not found');
     }
+    
+    console.log('[getDepositStatus] Transaction found:', {
+      id: transaction.id,
+      reference: transaction.reference,
+      status: transaction.status,
+      is_deleted: transaction.is_deleted
+    });
 
     return {
       reference: transaction.reference,
