@@ -28,6 +28,9 @@ export class JwtOrApiKeyGuard implements CanActivate {
       context.getHandler(),
     );
 
+    let jwtError: string | null = null;
+    let apiKeyError: string | null = null;
+
     // Try JWT authentication first
     const authHeader = request.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -48,21 +51,33 @@ export class JwtOrApiKeyGuard implements CanActivate {
           };
           return true;
         }
+        jwtError = 'Token version mismatch or user not found';
       } catch (error) {
-        // JWT validation failed, continue to try API key
+        jwtError = error instanceof Error ? error.message : 'JWT validation failed';
       }
     }
 
     // Try API key authentication
     const apiKey = request.headers['x-api-key'];
+    console.log('API Key check:', {
+      exists: !!apiKey,
+      type: typeof apiKey,
+      value: apiKey ? `${String(apiKey).substring(0, 10)}...` : 'null',
+      allHeaders: Object.keys(request.headers),
+    });
+
     if (apiKey && typeof apiKey === 'string') {
       try {
         const ipAddress = request.ip || request.connection?.remoteAddress;
+        console.log('Validating API key with permission:', requiredPermission || 'read');
+        
         const validatedApiKey = await this.apiKeysService.validateApiKey(
           apiKey,
           requiredPermission || 'read',
           ipAddress,
         );
+
+        console.log('API Key validated successfully for user:', validatedApiKey.created_by.id);
 
         request.apiKey = validatedApiKey;
         request.apiKeyUser = validatedApiKey.created_by;
@@ -73,11 +88,19 @@ export class JwtOrApiKeyGuard implements CanActivate {
         };
         return true;
       } catch (error) {
-        // API key validation failed
+        apiKeyError = error instanceof Error ? error.message : 'API key validation failed';
+        console.error('API Key validation error:', apiKeyError);
       }
+    } else {
+      console.log('API Key block skipped - header not present or not a string');
     }
 
     // Both authentication methods failed
+    const errorDetails: string[] = [];
+    if (jwtError) errorDetails.push(`JWT: ${jwtError}`);
+    if (apiKeyError) errorDetails.push(`API Key: ${apiKeyError}`);
+    
+    console.error('Authentication failed:', errorDetails.join(', '));
     throw new UnauthorizedException(
       'Authentication required. Provide either a valid JWT token or API key.',
     );
