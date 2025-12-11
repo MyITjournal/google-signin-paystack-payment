@@ -22,7 +22,7 @@ import { ApiKeyGuard } from './guards/api-key.guard';
       useFactory: (configService: ConfigService) => ({
         secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
-          expiresIn: '5m',
+          expiresIn: '1d',
         },
       }),
       inject: [ConfigService],
@@ -37,11 +37,6 @@ import { ApiKeyGuard } from './guards/api-key.guard';
     JwtAuthGuard,
     ApiKeyGuard,
   ],
-  exports: [
-    AuthService,
-    JwtModule,
-    JwtAuthGuard,
-    ApiKeyGuard,
-  ],
+  exports: [AuthService, JwtModule, JwtAuthGuard, ApiKeyGuard],
 })
 export class AuthModule {}
