@@ -36,7 +36,7 @@ export const REQUIRED_PERMISSION_KEY = 'requiredPermission';
  *
  * @example
  * @Post('deposit')
- * @UseGuards(JwtOrApiKeyGuard)
+ * @UseGuards(ApiKeyGuard)
  * @RequirePermission('deposit')
  * async deposit() {
  *   // Only API keys with 'deposit' permission can access this

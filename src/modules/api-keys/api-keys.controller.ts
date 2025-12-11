@@ -18,6 +18,7 @@ import { RolloverApiKeyDto } from './dto/rollover-api-key.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser, SkipWrap } from '../../common/decorators';
 import type { AuthenticatedUser } from '../../common/interfaces/jwt.interface';
+import type { ApiKey } from './entities/api-key.entity';
 import {
   ApiApiKeysTags,
   ApiApiKeysBearerAuth,

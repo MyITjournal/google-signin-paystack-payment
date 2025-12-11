@@ -13,7 +13,7 @@ import {
   Header,
   BadRequestException,
 } from '@nestjs/common';
-import { ApiExcludeEndpoint } from '@nestjs/swagger';
+import { ApiExcludeEndpoint, ApiTags, ApiSecurity } from '@nestjs/swagger';
 import { WalletService } from './wallet.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { ApiKeyGuard } from '../auth/guards/api-key.guard';
@@ -47,7 +47,8 @@ export class WalletController {
   constructor(private readonly walletService: WalletService) {}
 
   @Get('balance')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @RequirePermission('read')
   @SkipWrap()
   @ApiGetWalletBalance()
   async getBalance(@CurrentUser() user: AuthenticatedUser) {
@@ -55,7 +56,8 @@ export class WalletController {
   }
 
   @Post('deposit')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @RequirePermission('deposit')
   @HttpCode(HttpStatus.CREATED)
   @SkipWrap()
   @ApiWalletDeposit()
@@ -86,7 +88,8 @@ export class WalletController {
   }
 
   @Get('deposit/:reference/status')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @RequirePermission('read')
   @SkipWrap()
   @ApiVerifyDepositStatus()
   async getDepositStatus(@Param('reference') reference: string) {
@@ -97,7 +100,8 @@ export class WalletController {
   }
 
   @Post('withdraw')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @RequirePermission('transfer')
   @HttpCode(HttpStatus.CREATED)
   @ApiExcludeEndpoint()
   async withdrawFromWallet(
@@ -108,7 +112,8 @@ export class WalletController {
   }
 
   @Post('transfer')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @RequirePermission('transfer')
   @HttpCode(HttpStatus.CREATED)
   @SkipWrap()
   @ApiWalletTransfer()
@@ -120,7 +125,8 @@ export class WalletController {
   }
 
   @Get('transactions')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, ApiKeyGuard)
+  @RequirePermission('read')
   @SkipWrap()
   @ApiTransactionHistory()
   async getTransactionHistory(
