@@ -66,6 +66,12 @@ export class WalletController {
     @Headers('x-paystack-signature') signature: string,
     @Body() payload: PaystackWebhookPayload,
   ) {
+    console.log('📥 Webhook received:', {
+      signature: signature || 'MISSING',
+      event: payload?.event || 'UNKNOWN',
+      reference: payload?.data?.reference || 'N/A',
+    });
+    
     if (!signature) {
       throw new BadRequestException(SYS_MESSAGES.INVALID_SIGNATURE);
     }
