@@ -87,7 +87,7 @@ export class TransactionModelActions extends AbstractModelAction<Transaction> {
     reference: string,
   ): Promise<Transaction | null> {
     return this.repository.findOne({
-      where: { reference },
+      where: { reference, is_deleted: false },
       relations: ['user'],
     });
   }
