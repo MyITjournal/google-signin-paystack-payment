@@ -220,13 +220,13 @@ export const ApiTransactionHistory = () =>
         type: 'array',
         example: [
           {
-            type: 'deposit',
-            amount: 5000,
+            type: 'credit',
+            amount: 2800,
             status: 'success',
           },
           {
-            type: 'transfer',
-            amount: 3000,
+            type: 'debit',
+            amount: 1300,
             status: 'success',
           },
         ],

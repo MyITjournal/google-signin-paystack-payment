@@ -22,6 +22,7 @@ import { FundWalletDto } from './dto/fund-wallet.dto';
 import { WithdrawWalletDto } from './dto/withdraw-wallet.dto';
 import type { PaystackWebhookPayload } from '../../common/interfaces/paystack.interface';
 import { TransferWalletDto } from './dto/transfer-wallet.dto';
+import { TransactionHistoryResponseDto } from './dto/transaction-history-response.dto';
 import { SYS_MESSAGES } from '../../common/constants/sys-messages';
 import {
   ApiWalletTags,
@@ -121,17 +122,7 @@ export class WalletController {
   async getTransactionHistory(
     @CurrentUser() user: AuthenticatedUser,
     @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-  ) {
+  ): Promise<TransactionHistoryResponseDto[]> {
     return this.walletService.getTransactionHistory(user.userId, limit || 50);
-  }
-
-  @Get('callback')
-  @Header('Content-Type', 'text/html')
-  @ApiExcludeEndpoint()
-  async handlePaymentCallback(@Query('reference') reference: string) {
-    if (!reference || reference.trim() === '') {
-      throw new BadRequestException(SYS_MESSAGES.INVALID_INPUT);
-    }
-    return this.walletService.handlePaymentCallback(reference);
   }
 }
